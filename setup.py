@@ -48,7 +48,7 @@ setup(name='duke.deploy',
      #test_suite='dukedeploydjango.tests',
       entry_points="""
       [console_scripts]
-      develop = duke.deploy.deploy:deploy
+      deploy = duke.deploy.main:deploy
       [zc.buildout.extension]
       default = duke.deploy.extension:extension
       """,

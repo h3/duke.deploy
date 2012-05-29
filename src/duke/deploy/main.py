@@ -193,6 +193,7 @@ class CmdUpdate(Command):
         config.save()
 
 
+print "AAA"
 class Deploy(object):
     def __call__(self, **kwargs):
         logger.setLevel(logging.INFO)
@@ -212,8 +213,7 @@ class Deploy(object):
             self.buildout_dir = find_base()
         except IOError, e:
             self.parser.print_help()
-            print
-            logger.error("You are not in a path which has duke.dev installed (%s)." % e)
+            logger.error("You are not in a path which has duke.deploy installed (%s)." % e)
             return
 
         self.config = Config(self.buildout_dir)

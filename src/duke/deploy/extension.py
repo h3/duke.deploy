@@ -26,7 +26,7 @@ class Extension(object):
         return Config(self.buildout_dir)
 
     def get_workingcopies(self):
-        return WorkingCopies(self.get_sources())
+        return WorkingCopies(self.get_servers())
 
     @memoize
     def get_config_dir(self):
@@ -114,7 +114,7 @@ class Extension(object):
 
     @memoize
     def get_auto_checkout(self):
-        packages = set(self.get_sources().keys())
+        packages = set(self.get_servers().keys())
 
         auto_checkout = set(
             self.buildout['buildout'].get('auto-checkout', '').split()
@@ -135,7 +135,7 @@ class Extension(object):
 
     def get_deploy_info(self):
         auto_checkout = self.get_auto_checkout()
-        sources = self.get_sources()
+        sources = self.get_servers()
         develop = self.buildout['buildout'].get('develop', '')
         versions_section = self.buildout['buildout'].get('versions')
         versions = self.buildout.get(versions_section, {})
@@ -200,7 +200,7 @@ class Extension(object):
         (develop, develeggs, versions) = self.get_develop_info()
 
         packages = set(auto_checkout)
-        sources = self.get_sources()
+        sources = self.get_servers()
         for pkg in develeggs:
             if pkg in sources and sources[pkg].get('update'):
                 packages.add(pkg)
