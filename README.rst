@@ -44,3 +44,16 @@ Configurations
       prod/
         settings.py
         vhost.conf
+
+Usage
+-----
+
+::
+
+    $ remote deploy beta
+    $ remote update -tcs beta,prod
+    $ remote purge beta 
+    $ remote backup beta 
+    $ remote rollback beta -r56
+    $ remote rollback beta --last
+

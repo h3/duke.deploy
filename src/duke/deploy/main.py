@@ -1,5 +1,6 @@
 #from duke.deploy.common import logger, memoize, WorkingCopies, Config, yesno
 from duke.deploy.common import logger, memoize
+from duke.deploy.utils import find_base
 #from duke.deploy.extension import Extension
 from zc.buildout.buildout import Buildout
 import argparse
@@ -16,23 +17,6 @@ import sys
 import textwrap
 
 CONFIG_FILE = './duke/.duke.deploy.cfg'
-
-def find_base():
-    if 'DUKE_DEPLOY_BASE' in os.environ:
-        return os.environ['DUKE_DEPLOY_BASE']
-    path = os.getcwd()
-    while path:
-        if os.path.exists(os.path.join(path, CONFIG_FILE)):
-            break
-        old_path = path
-        path = os.path.dirname(path)
-        if old_path == path:
-            path = None
-            break
-    if path is None:
-        raise IOError(CONFIG_FILE + " not found")
-
-    return path
 
 
 class ChoicesPseudoAction(argparse.Action):
@@ -64,21 +48,21 @@ class HelpFormatter(argparse.HelpFormatter):
 
 
 class Command(object):
-    def __init__(self, develop):
-        self.develop = develop
+    def __init__(self, deploy):
+        self.deploy = deploy
 
     @memoize
     def get_packages(self, args, auto_checkout=False,
-                     develop=False, checked_out=False):
+                     deploy=False, checked_out=False):
         if auto_checkout:
-            packages = set(self.develop.auto_checkout)
+            packages = set(self.deploy.auto_checkout)
         else:
-            packages = set(self.develop.sources)
-        if develop:
-            packages = packages.intersection(set(self.develop.develeggs))
+            packages = set(self.deploy.sources)
+        if deploy:
+            packages = packages.intersection(set(self.deploy.develeggs))
         if checked_out:
             for name in set(packages):
-                if not self.develop.sources[name].exists():
+                if not self.deploy.sources[name].exists():
                     packages.remove(name)
         if not args:
             return packages
@@ -100,15 +84,15 @@ class Command(object):
         return result
 
 
-class CmdDeploy(Command):
-    def __init__(self, develop):
-        Command.__init__(self, develop)
-        self.parser=self.develop.parsers.add_parser(
-            "deploy",
+class CmdInstall(Command):
+    def __init__(self, deploy):
+        Command.__init__(self, deploy)
+        self.parser=self.deploy.parsers.add_parser(
+            "install",
             description="Deploy project to a specified stage")
-        self.develop.parsers._name_parser_map["co"] = self.develop.parsers._name_parser_map["checkout"]
-        self.develop.parsers._choices_actions.append(ChoicesPseudoAction(
-            "deploy", "d", help="Deploy project on a remote server"))
+        self.deploy.parsers._name_parser_map["co"] = self.deploy.parsers._name_parser_map["checkout"]
+        self.deploy.parsers._choices_actions.append(ChoicesPseudoAction(
+            "install", "i", help="Install project on a remote server"))
         self.parser.add_argument("-b", "--backup", dest="deploy_backup",
                                action="store_true", default=False,
                                help="""Backup before deploying""")
@@ -118,21 +102,21 @@ class CmdDeploy(Command):
         self.parser.set_defaults(func=self)
 
     def __call__(self, args):
-        config = self.develop.config
+        config = self.deploy.config
         packages = self.get_packages(getattr(args, 'package-regexp'),
                                      auto_checkout=args.auto_checkout)
         try:
-            workingcopies = WorkingCopies(self.develop.sources)
+            workingcopies = WorkingCopies(self.deploy.sources)
             workingcopies.checkout(sorted(packages),
                                    verbose=args.verbose,
-                                   always_accept_server_certificate=self.develop.always_accept_server_certificate)
+                                   always_accept_server_certificate=self.deploy.always_accept_server_certificate)
             for name in sorted(packages):
-                source = self.develop.sources[name]
+                source = self.deploy.sources[name]
                 if not source.get('egg', True):
                     continue
-                config.develop[name] = True
+                config.deploy[name] = True
                 logger.info("Activated '%s'." % name)
-            logger.warn("Don't forget to run buildout again, so the checked out packages are used as develop eggs.")
+            logger.warn("Don't forget to run buildout again, so the checked out packages are used as deploy eggs.")
             config.save()
         except (ValueError, KeyError), e:
             logger.error(e)
@@ -140,14 +124,14 @@ class CmdDeploy(Command):
 
 
 class CmdUpdate(Command):
-    def __init__(self, develop):
-        Command.__init__(self, develop)
+    def __init__(self, deploy):
+        Command.__init__(self, deploy)
         description="Perform an update one one or more remote servers"
-        self.parser=self.develop.parsers.add_parser(
+        self.parser=self.deploy.parsers.add_parser(
             "update",
             description=description)
-        self.develop.parsers._name_parser_map["u"] = self.develop.parsers._name_parser_map["update"]
-        self.develop.parsers._choices_actions.append(ChoicesPseudoAction(
+        self.deploy.parsers._name_parser_map["u"] = self.deploy.parsers._name_parser_map["update"]
+        self.deploy.parsers._choices_actions.append(ChoicesPseudoAction(
             "update", "u", help=description))
         self.parser.add_argument("-c", "--code", dest="update_code",
                                action="store_true", default=False,
@@ -171,21 +155,21 @@ class CmdUpdate(Command):
         self.parser.set_defaults(func=self)
 
     def __call__(self, args):
-        config = self.develop.config
+        config = self.deploy.config
         packages = self.get_packages(getattr(args, 'package-regexp'),
                                      auto_checkout=args.auto_checkout,
                                      checked_out=args.checked_out,
-                                     develop=args.develop)
+                                     deploy=args.deploy)
         changed = False
         for name in sorted(packages):
-            source = self.develop.sources[name]
+            source = self.deploy.sources[name]
             if not source.exists():
                 logger.warning("The package '%s' matched, but isn't checked out." % name)
                 continue
             if not source.get('egg', True):
                 logger.warning("The package '%s' isn't an egg." % name)
                 continue
-            config.develop[name] = True
+            config.deploy[name] = True
             logger.info("Activated '%s'." % name)
             changed = True
         if changed:
@@ -193,8 +177,7 @@ class CmdUpdate(Command):
         config.save()
 
 
-print "AAA"
-class Deploy(object):
+class Remote(object):
     def __call__(self, **kwargs):
         logger.setLevel(logging.INFO)
         ch = logging.StreamHandler()
@@ -206,6 +189,7 @@ class Deploy(object):
                                  action='version',
                                  version='duke.deploy %s' % version)
         self.parsers = self.parser.add_subparsers(title="commands", metavar="")
+        CmdInstall(self)
         CmdUpdate(self)
         args = self.parser.parse_args()
 
@@ -255,4 +239,4 @@ class Deploy(object):
         logger.info("Type '%s help' for usage." % os.path.basename(sys.argv[0]))
         sys.exit(1)
 
-deploy = Deploy()
+remote = Remote()

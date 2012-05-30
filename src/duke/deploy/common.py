@@ -342,18 +342,18 @@ class Config(object):
         self._config = RawConfigParser()
         self._config.optionxform = lambda s: s
         self._config.read(self.cfg_path)
-        self.develop = {}
+        self.deploy = {}
         self.buildout_args = []
         self.rewrites = []
-        if self._config.has_section('develop'):
-            for package, value in self._config.items('develop'):
+        if self._config.has_section('deploy'):
+            for package, value in self._config.items('deploy'):
                 value = value.lower()
                 if value == 'true':
-                    self.develop[package] = True
+                    self.deploy[package] = True
                 elif value == 'false':
-                    self.develop[package] = False
+                    self.deploy[package] = False
                 elif value == 'auto':
-                    self.develop[package] = 'auto'
+                    self.deploy[package] = 'auto'
                 else:
                     raise ValueError("Invalid value in 'deploy' section of '%s'" % self.cfg_path)
         if self._config.has_option('buildout', 'args'):
@@ -372,16 +372,16 @@ class Config(object):
                 self.rewrites.append(rewrite.split())
 
     def save(self):
-        self._config.remove_section('develop')
-        self._config.add_section('develop')
-        for package in sorted(self.develop):
-            state = self.develop[package]
+        self._config.remove_section('deploy')
+        self._config.add_section('deploy')
+        for package in sorted(self.deploy):
+            state = self.deploy[package]
             if state is 'auto':
-                self._config.set('develop', package, 'auto')
+                self._config.set('deploy', package, 'auto')
             elif state is True:
-                self._config.set('develop', package, 'true')
+                self._config.set('deploy', package, 'true')
             elif state is False:
-                self._config.set('develop', package, 'false')
+                self._config.set('deploy', package, 'false')
 
         if not self._config.has_section('buildout'):
             self._config.add_section('buildout')
